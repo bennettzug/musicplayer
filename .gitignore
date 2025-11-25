@@ -1,0 +1,25 @@
+# Swift / Xcode
+.DS_Store
+/.build
+/.swiftpm
+/*.xcodeproj
+/*.xcworkspace
+DerivedData
+build/
+*.xcresult
+*.dSYM
+*.xcarchive
+*.app
+**/*.xcuserdatad/
+**/xcuserdata/
+
+# User settings
+*.xcuserstate
+*.xcuserdata
+LastFMSecrets.plist
+
+# Local artifacts
+MusicPlayer/**/musicplayer.icon/
+
+# Logs
+*.log
