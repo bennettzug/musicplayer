@@ -1,6 +1,8 @@
-# MusicPlayer (SwiftUI macOS)
+# MusicPlayer
 
-SwiftUI macOS album-first player. Scans a local music folder, lets you browse by artist/album, and plays with a simple now-playing view and queue.
+![Main view](screenshots/mainview.png)
+
+Local files music player for macOS, with a focus on playing albums and a fullscreen viewer. Supports last.fm.
 
 ## Requirements
 - macOS with Xcode installed.
@@ -31,14 +33,3 @@ Xcode UI:
 3) Product → Archive.  
 4) In the Organizer, select the archive → Distribute → Copy App, then save the `.app`.  
 5) Copy the exported `MusicPlayer.app` to `/Applications` and open (use “Right-click → Open” on first launch).
-
-## Features & notes
-- Album browser sidebar with search; click an album to play.
-- Now playing shows art, track metadata, scrubber, transport, volume, and an optional queue.
-- Spacebar toggles play/pause when the app is focused and no text input has focus.
-- Background gradient adapts to album art; text color auto-adjusts for contrast.
-- Library path is persisted via security-scoped bookmarks; “Rescan (Clear Cache)” purges and rebuilds the library cache.
-- Last.fm scrobble/now-playing support when linked.
-
-## Hotkeys
-- Spacebar: play/pause (only when app is active and you’re not typing).
