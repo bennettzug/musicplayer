@@ -12,6 +12,7 @@ struct ContentView: View {
             AlbumBrowserSidebar()
                 .environmentObject(viewModel)
                 .navigationSplitViewColumnWidth(min: 320, ideal: 420, max: 560)
+                .scrollEdgeEffectStyle(.soft, for:.top)
         } detail: {
             ZStack {
                 BackgroundView(color: viewModel.backgroundColor)

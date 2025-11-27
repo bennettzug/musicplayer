@@ -59,7 +59,7 @@ private struct AlbumRow: View {
                 Text(album.title)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
-                Text("\(album.tracks.count) tracks")
+                Text("\(album.year)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

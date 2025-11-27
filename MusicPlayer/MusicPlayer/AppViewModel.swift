@@ -412,9 +412,12 @@ final class AppViewModel: ObservableObject {
         library
             .filter { ($0.artist.isEmpty ? "Unknown Artist" : $0.artist) == artist }
             .sorted {
-                let lhs = $0.titleSort ?? $0.title
-                let rhs = $1.titleSort ?? $1.title
-                return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+                let lhsKey = albumYearSortKey($0)
+                let rhsKey = albumYearSortKey($1)
+                if lhsKey.year != rhsKey.year {
+                    return lhsKey.year < rhsKey.year
+                }
+                return lhsKey.title.localizedCaseInsensitiveCompare(rhsKey.title) == .orderedAscending
             }
     }
 
@@ -469,6 +472,16 @@ final class AppViewModel: ObservableObject {
                 collapsedSearchOverrides.insert(artist)
             }
         }
+    }
+
+    private func albumYearSortKey(_ album: Album) -> (year: Int, title: String) {
+        let year = [
+            album.originalYear,
+            album.year
+        ].compactMap { $0 }.compactMap(Int.init).first ?? Int.max
+
+        let title = album.titleSort ?? album.title
+        return (year: year, title: title)
     }
 
     // MARK: - Last.fm persistence
