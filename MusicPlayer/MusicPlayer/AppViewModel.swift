@@ -35,6 +35,7 @@ final class AppViewModel: ObservableObject {
     let playback = PlaybackState()
 
     private let player = PlayerController()
+    private let nowPlaying = NowPlayingController()
     private var cancellables: Set<AnyCancellable> = []
     private var progressTimer: AnyCancellable?
     private let bookmarkKey = "musicplayer.libraryBookmark"
@@ -65,6 +66,26 @@ final class AppViewModel: ObservableObject {
                 self?.handleExternalPause()
             }
         }
+        nowPlaying.configureRemoteCommands(
+            play: { [weak self] in
+                Task { @MainActor in self?.handleRemotePlay() }
+            },
+            pause: { [weak self] in
+                Task { @MainActor in self?.handleRemotePause() }
+            },
+            toggle: { [weak self] in
+                Task { @MainActor in self?.handleRemoteToggle() }
+            },
+            next: { [weak self] in
+                Task { @MainActor in self?.playNext() }
+            },
+            previous: { [weak self] in
+                Task { @MainActor in self?.playPrevious() }
+            },
+            seek: { [weak self] newTime in
+                Task { @MainActor in self?.handleRemoteSeek(to: newTime) }
+            }
+        )
     }
 
     func togglePlayback() {
@@ -72,15 +93,35 @@ final class AppViewModel: ObservableObject {
         if playback.isPlaying {
             player.pause()
             playback.isPlaying = false
+            nowPlaying.updatePlaybackState(isPlaying: false, elapsed: playback.position, duration: playback.duration)
         } else {
             if player.hasCurrentItem {
                 player.resume()
                 playback.isPlaying = true
                 startProgressTimer()
+                nowPlaying.updatePlaybackState(isPlaying: true, elapsed: playback.position, duration: playback.duration)
             } else {
                 play(album: album, trackIndex: currentTrackIndex)
             }
         }
+    }
+
+    private func handleRemotePlay() {
+        guard !playback.isPlaying else { return }
+        togglePlayback()
+    }
+
+    private func handleRemotePause() {
+        guard playback.isPlaying else { return }
+        togglePlayback()
+    }
+
+    private func handleRemoteToggle() {
+        togglePlayback()
+    }
+
+    private func handleRemoteSeek(to time: TimeInterval) {
+        seek(to: time)
     }
 
     func play(album: Album, trackIndex: Int = 0) {
@@ -88,12 +129,14 @@ final class AppViewModel: ObservableObject {
         currentAlbum = album
         currentTrackIndex = trackIndex
         playback.position = 0
-        playback.duration = album.tracks[safe: trackIndex]?.duration ?? 0
+        guard let track = album.tracks[safe: trackIndex] else { return }
+        playback.duration = track.duration
         playback.isPlaying = true
         updatePalette(from: album)
         currentTrackStartDate = Date()
-        sendLastFMNowPlaying(track: album.tracks[trackIndex], album: album)
-        player.play(track: album.tracks[trackIndex], volume: playback.volume)
+        sendLastFMNowPlaying(track: track, album: album)
+        player.play(track: track, volume: playback.volume)
+        nowPlaying.updateMetadata(track: track, album: album, elapsed: playback.position, duration: playback.duration, isPlaying: true)
         startProgressTimer()
     }
 
@@ -107,6 +150,7 @@ final class AppViewModel: ObservableObject {
                 progressTimer?.cancel()
                 currentTrackStartDate = nil
                 player.pause()
+                nowPlaying.updatePlaybackState(isPlaying: false, elapsed: playback.position, duration: playback.duration)
                 return
             }
             play(album: album, trackIndex: nextRawIndex)
@@ -128,6 +172,7 @@ final class AppViewModel: ObservableObject {
     func seek(to time: TimeInterval) {
         playback.position = time
         player.seek(to: time)
+        nowPlaying.updatePlaybackState(isPlaying: playback.isPlaying, elapsed: time, duration: playback.duration)
     }
 
     func setVolume(_ newVolume: Double) {
@@ -250,6 +295,7 @@ final class AppViewModel: ObservableObject {
                 self.playback.isPlaying = false
                 self.playback.position = 0
                 self.playback.duration = 0
+                self.nowPlaying.clear()
                 self.libraryPath = url.path
             }
         } catch {
@@ -298,6 +344,9 @@ final class AppViewModel: ObservableObject {
                 guard self.playback.isPlaying else { return }
                 self.playback.position = self.player.currentTime()
                 self.playback.duration = max(self.playback.duration, self.player.currentDuration())
+                self.nowPlaying.updateProgress(elapsed: self.playback.position,
+                                               duration: self.playback.duration,
+                                               isPlaying: self.playback.isPlaying)
             }
     }
 
@@ -331,6 +380,7 @@ final class AppViewModel: ObservableObject {
     private func handleExternalPause() {
         playback.isPlaying = false
         player.pause()
+        nowPlaying.updatePlaybackState(isPlaying: false, elapsed: playback.position, duration: playback.duration)
     }
 
     private func sendLastFMNowPlaying(track: Track, album: Album) {
