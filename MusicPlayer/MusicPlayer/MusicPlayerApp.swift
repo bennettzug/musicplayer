@@ -15,6 +15,7 @@ struct MusicPlayerApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(viewModel)
+                .environmentObject(viewModel.playback)
                 .windowToolbarFullScreenVisibility(.onHover)
                 .presentedWindowToolbarStyle(.unified)
         }
@@ -22,6 +23,7 @@ struct MusicPlayerApp: App {
         Settings {
             SettingsView()
                 .environmentObject(viewModel)
+                .environmentObject(viewModel.playback)
         }
     }
 }

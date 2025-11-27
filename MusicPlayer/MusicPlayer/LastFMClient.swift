@@ -66,8 +66,8 @@ struct LastFMClient {
         var params: [String: String] = [
             "api_key": apiKey,
             "method": "track.updateNowPlaying",
-            "artist": track.artist,
-            "track": track.title,
+            "artist": scrobbleArtist(track: track, album: album),
+            "track": scrobbleTitle(track: track, album: album),
             "sk": sessionKey,
             "format": "json"
         ]
@@ -75,6 +75,15 @@ struct LastFMClient {
         // Optional metadata per API docs.
         if !album.title.isEmpty {
             params["album"] = album.title
+        }
+        if !album.artist.isEmpty, album.artist != track.artist {
+            params["albumArtist"] = album.artist
+        }
+        if track.trackNumber > 0 {
+            params["trackNumber"] = "\(track.trackNumber)"
+        }
+        if let mbid = track.musicBrainzReleaseTrackID ?? track.musicBrainzTrackID {
+            params["mbid"] = mbid
         }
         if track.duration > 0 {
             params["duration"] = "\(Int(track.duration))"
@@ -95,8 +104,8 @@ struct LastFMClient {
         var params: [String: String] = [
             "api_key": apiKey,
             "method": "track.scrobble",
-            "artist": track.artist,
-            "track": track.title,
+            "artist": scrobbleArtist(track: track, album: album),
+            "track": scrobbleTitle(track: track, album: album),
             "timestamp": "\(timestamp)",
             "sk": sessionKey,
             "format": "json"
@@ -105,6 +114,15 @@ struct LastFMClient {
         // Optional fields as per track.scrobble docs.
         if !album.title.isEmpty {
             params["album"] = album.title
+        }
+        if !album.artist.isEmpty, album.artist != track.artist {
+            params["albumArtist"] = album.artist
+        }
+        if track.trackNumber > 0 {
+            params["trackNumber"] = "\(track.trackNumber)"
+        }
+        if let mbid = track.musicBrainzReleaseTrackID ?? track.musicBrainzTrackID {
+            params["mbid"] = mbid
         }
         if track.duration > 0 {
             params["duration"] = "\(Int(track.duration))"
@@ -126,7 +144,7 @@ struct LastFMClient {
             "api_key": apiKey,
             "method": "auth.getToken",
             "format": "json"
-        ]
+        ] 
 
         let apiSig = sign(params: params)
         var body = params
@@ -198,6 +216,51 @@ struct LastFMClient {
         concatenated += apiSecret
 
         return md5(concatenated)
+    }
+
+    /// Prefer album artist when the track artist already contains it (e.g., "slowthai feat. X" + albumArtist "slowthai").
+    private func scrobbleArtist(track: Track, album: Album) -> String {
+        let trackArtist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let albumArtist = album.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !albumArtist.isEmpty else { return trackArtist }
+
+        let trackLower = trackArtist.lowercased()
+        let albumLower = albumArtist.lowercased()
+
+        if trackLower != albumLower, trackLower.contains(albumLower) {
+            return albumArtist
+        }
+
+        return trackArtist
+    }
+
+    /// If we fall back to album artist, fold the featured info into the title.
+    private func scrobbleTitle(track: Track, album: Album) -> String {
+        let trackArtist = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        let albumArtist = album.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !albumArtist.isEmpty else { return track.title }
+
+        let trackLower = trackArtist.lowercased()
+        let albumLower = albumArtist.lowercased()
+
+        guard trackLower != albumLower, trackLower.contains(albumLower) else {
+            return track.title
+        }
+
+        // Extract substring after album artist to append as featured.
+        if let range = trackLower.range(of: albumLower) {
+            let suffixStart = trackArtist.index(trackArtist.startIndex, offsetBy: range.upperBound.utf16Offset(in: trackLower))
+            let suffix = trackArtist[suffixStart...].trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleaned = suffix
+                .replacingOccurrences(of: "(?i)^feat\\.\\s*", with: "", options: .regularExpression)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "-–—()[] "))
+            if !cleaned.isEmpty {
+                return "\(track.title) (feat. \(cleaned))"
+            }
+        }
+
+        return track.title
     }
 
     private func md5(_ string: String) -> String {

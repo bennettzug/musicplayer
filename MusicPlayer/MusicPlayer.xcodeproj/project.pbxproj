@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		911FD0752ED7D50D00A85368 /* taglib in Frameworks */ = {isa = PBXBuildFile; productRef = 911FD0742ED7D50D00A85368 /* taglib */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		91B625CF2ED4E64E001DF417 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				911FD0752ED7D50D00A85368 /* taglib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +77,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		911FD0732ED7D50D00A85368 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		91B625B82ED4E64C001DF417 = {
 			isa = PBXGroup;
 			children = (
 				91B625C32ED4E64C001DF417 /* MusicPlayer */,
 				91B625D12ED4E64E001DF417 /* MusicPlayerTests */,
 				91B625DB2ED4E64E001DF417 /* MusicPlayerUITests */,
+				911FD0732ED7D50D00A85368 /* Frameworks */,
 				91B625C22ED4E64C001DF417 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -106,12 +119,14 @@
 			buildRules = (
 			);
 			dependencies = (
+				911FD0722ED7D4D700A85368 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				91B625C32ED4E64C001DF417 /* MusicPlayer */,
 			);
 			name = MusicPlayer;
 			packageProductDependencies = (
+				911FD0742ED7D50D00A85368 /* taglib */,
 			);
 			productName = MusicPlayer;
 			productReference = 91B625C12ED4E64C001DF417 /* MusicPlayer.app */;
@@ -195,6 +210,9 @@
 			);
 			mainGroup = 91B625B82ED4E64C001DF417;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				911FD0702ED7C6A800A85368 /* XCRemoteSwiftPackageReference "CXXTagLib" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 91B625C22ED4E64C001DF417 /* Products */;
 			projectDirPath = "";
@@ -256,6 +274,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		911FD0722ED7D4D700A85368 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = 911FD0712ED7D4D700A85368 /* taglib */;
+		};
 		91B625D02ED4E64E001DF417 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 91B625C02ED4E64C001DF417 /* MusicPlayer */;
@@ -599,6 +621,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		911FD0702ED7C6A800A85368 /* XCRemoteSwiftPackageReference "CXXTagLib" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sbooth/CXXTagLib.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		911FD0712ED7D4D700A85368 /* taglib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 911FD0702ED7C6A800A85368 /* XCRemoteSwiftPackageReference "CXXTagLib" */;
+			productName = taglib;
+		};
+		911FD0742ED7D50D00A85368 /* taglib */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 911FD0702ED7C6A800A85368 /* XCRemoteSwiftPackageReference "CXXTagLib" */;
+			productName = taglib;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 91B625B92ED4E64C001DF417 /* Project object */;
 }

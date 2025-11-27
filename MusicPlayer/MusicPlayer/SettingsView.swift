@@ -21,6 +21,10 @@ struct SettingsView: View {
                     Button("Rescan") {
                         viewModel.rescanLibrary()
                     }
+                    Button("Rescan (Clear Cache)") {
+                        viewModel.rescanLibraryClearingCache()
+                    }
+                    
                 }
             }
 

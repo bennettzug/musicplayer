@@ -6,16 +6,20 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 @MainActor
+final class PlaybackState: ObservableObject {
+    @Published var isPlaying: Bool = false
+    @Published var position: TimeInterval = 0
+    @Published var duration: TimeInterval = 0
+    @Published var volume: Double = 0.8
+    @Published var isQueueVisible: Bool = true
+}
+
+@MainActor
 final class AppViewModel: ObservableObject {
     @Published var library: [Album] = []
     @Published var currentAlbum: Album?
     @Published var currentTrackIndex: Int = 0
-    @Published var isPlaying: Bool = false
-    @Published var playbackPosition: TimeInterval = 0
-    @Published var duration: TimeInterval = 0
-    @Published var volume: Double = 0.8
     @Published var isAlbumBrowserOpen: Bool = true
-    @Published var isQueueVisible: Bool = true
     @Published var backgroundColor: Color = Color(red: 0.12, green: 0.12, blue: 0.14)
     @Published var artists: [String] = []
     @Published var selectedArtist: String?
@@ -27,6 +31,7 @@ final class AppViewModel: ObservableObject {
     }
     @Published var expandedArtists: Set<String> = []
     @Published var collapsedSearchOverrides: Set<String> = []
+    let playback = PlaybackState()
 
     private let player = PlayerController()
     private var cancellables: Set<AnyCancellable> = []
@@ -44,15 +49,10 @@ final class AppViewModel: ObservableObject {
     private var pendingLastFMToken: String?
 
     private var currentTrackStartDate: Date?
-    private var removeVolumeListener: (() -> Void)?
 
     init() {
-        if let sysVol = SystemVolume.current() {
-            volume = sysVol
-        }
         Task { await loadPersistedLibrary() }
         loadLastFMSession()
-        startSystemVolumeListener()
         player.onTrackEnd = { [weak self] in
             Task { @MainActor in
                 self?.handleTrackFinished()
@@ -67,13 +67,13 @@ final class AppViewModel: ObservableObject {
 
     func togglePlayback() {
         guard let album = currentAlbum else { return }
-        if isPlaying {
+        if playback.isPlaying {
             player.pause()
-            isPlaying = false
+            playback.isPlaying = false
         } else {
             if player.hasCurrentItem {
                 player.resume()
-                isPlaying = true
+                playback.isPlaying = true
                 startProgressTimer()
             } else {
                 play(album: album, trackIndex: currentTrackIndex)
@@ -85,18 +85,31 @@ final class AppViewModel: ObservableObject {
         scrobbleIfNeeded()
         currentAlbum = album
         currentTrackIndex = trackIndex
-        playbackPosition = 0
-        duration = album.tracks[safe: trackIndex]?.duration ?? 0
-        isPlaying = true
+        playback.position = 0
+        playback.duration = album.tracks[safe: trackIndex]?.duration ?? 0
+        playback.isPlaying = true
         updatePalette(from: album)
         currentTrackStartDate = Date()
         sendLastFMNowPlaying(track: album.tracks[trackIndex], album: album)
-        player.play(track: album.tracks[trackIndex], volume: 1.0)
+        player.play(track: album.tracks[trackIndex], volume: playback.volume)
         startProgressTimer()
     }
 
     func playNext(autoAdvance: Bool = false) {
         guard let album = currentAlbum else { return }
+        if autoAdvance {
+            let nextRawIndex = currentTrackIndex + 1
+            // Stop at end of album on auto-advance instead of looping.
+            guard nextRawIndex < album.tracks.count else {
+                playback.isPlaying = false
+                progressTimer?.cancel()
+                currentTrackStartDate = nil
+                player.pause()
+                return
+            }
+            play(album: album, trackIndex: nextRawIndex)
+            return
+        }
         if !autoAdvance {
             scrobbleIfNeeded()
         }
@@ -111,13 +124,13 @@ final class AppViewModel: ObservableObject {
     }
 
     func seek(to time: TimeInterval) {
-        playbackPosition = time
+        playback.position = time
         player.seek(to: time)
     }
 
     func setVolume(_ newVolume: Double) {
-        volume = newVolume
-        SystemVolume.set(newVolume)
+        playback.volume = newVolume
+        player.setVolume(newVolume)
     }
 
     func toggleAlbumBrowser() {
@@ -133,9 +146,21 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    func rescanLibraryClearingCache() {
+        guard let path = libraryPath else { return }
+        Task {
+            do {
+                try LibraryScanner.clearCache()
+            } catch {
+                print("Failed to clear cache: \(error)")
+            }
+            await loadLibrary(from: URL(fileURLWithPath: path))
+        }
+    }
+
     func toggleQueueVisibility() {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-            isQueueVisible.toggle()
+            playback.isQueueVisible.toggle()
         }
     }
 
@@ -203,14 +228,26 @@ final class AppViewModel: ObservableObject {
             let albums = try await LibraryScanner().scan(url: url)
             await MainActor.run {
                 self.library = albums
-                self.artists = Array(Set(albums.map { $0.artist.isEmpty ? "Unknown Artist" : $0.artist }))
-                    .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+                let artistEntries: [(name: String, sortKey: String)] = albums.map { album in
+                    let display = album.artist.isEmpty ? "Unknown Artist" : album.artist
+                    let sort = album.artistSort ?? display
+                    return (display, sort)
+                }
+                var artistSortMap: [String: String] = [:]
+                for entry in artistEntries {
+                    artistSortMap[entry.name] = entry.sortKey
+                }
+                self.artists = artistSortMap.keys.sorted {
+                    let lhs = artistSortMap[$0] ?? $0
+                    let rhs = artistSortMap[$1] ?? $1
+                    return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+                }
                 self.selectedArtist = nil
                 self.expandedArtists.removeAll()
                 self.currentAlbum = nil
-                self.isPlaying = false
-                self.playbackPosition = 0
-                self.duration = 0
+                self.playback.isPlaying = false
+                self.playback.position = 0
+                self.playback.duration = 0
                 self.libraryPath = url.path
             }
         } catch {
@@ -256,19 +293,10 @@ final class AppViewModel: ObservableObject {
             .autoconnect()
             .sink { [weak self] _ in
                 guard let self else { return }
-                guard self.isPlaying else { return }
-                self.playbackPosition = self.player.currentTime()
-                self.duration = max(self.duration, self.player.currentDuration())
+                guard self.playback.isPlaying else { return }
+                self.playback.position = self.player.currentTime()
+                self.playback.duration = max(self.playback.duration, self.player.currentDuration())
             }
-    }
-
-    private func startSystemVolumeListener() {
-        removeVolumeListener = SystemVolume.addVolumeChangeListener { [weak self] newValue in
-            guard let self else { return }
-            Task { @MainActor in
-                self.volume = newValue
-            }
-        }
     }
 
     private func scrobbleIfNeeded() {
@@ -279,7 +307,7 @@ final class AppViewModel: ObservableObject {
         // Last.fm: track must be > 30s
         guard track.duration > 30 else { return }
 
-        let elapsed = playbackPosition
+        let elapsed = playback.position
         let threshold = min(track.duration * 0.5, 240)
         guard elapsed >= threshold else { return }
 
@@ -299,7 +327,7 @@ final class AppViewModel: ObservableObject {
     }
 
     private func handleExternalPause() {
-        isPlaying = false
+        playback.isPlaying = false
         player.pause()
     }
 
@@ -362,7 +390,11 @@ final class AppViewModel: ObservableObject {
     func albumsForArtist(_ artist: String) -> [Album] {
         library
             .filter { ($0.artist.isEmpty ? "Unknown Artist" : $0.artist) == artist }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            .sorted {
+                let lhs = $0.titleSort ?? $0.title
+                let rhs = $1.titleSort ?? $1.title
+                return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+            }
     }
 
     func albumsForArtistFiltered(_ artist: String) -> [Album] {

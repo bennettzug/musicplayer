@@ -13,13 +13,16 @@ struct AlbumBrowserSidebar: View {
                     )
 
                     DisclosureGroup(isExpanded: binding) {
-                        ForEach(viewModel.albumsForArtistFiltered(artist)) { album in
-                            AlbumRow(album: album, isActive: album.id == viewModel.currentAlbum?.id)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    viewModel.play(album: album, trackIndex: 0)
-                                }
+                        VStack(spacing: 4) {
+                            ForEach(viewModel.albumsForArtistFiltered(artist)) { album in
+                                AlbumRow(album: album, isActive: album.id == viewModel.currentAlbum?.id)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        viewModel.play(album: album, trackIndex: 0)
+                                    }
+                            }
                         }
+                        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                     } label: {
                         HStack {
                             Text(artist)
@@ -64,7 +67,6 @@ private struct AlbumRow: View {
             if isActive {
                 Image(systemName: "waveform")
                     .foregroundColor(.accentColor)
-                    .symbolEffect(.breathe, options: .repeat(.continuous))
             }
         }
         .padding(.vertical, 4)

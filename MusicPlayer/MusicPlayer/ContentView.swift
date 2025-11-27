@@ -94,8 +94,10 @@ private struct BackgroundView: View {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(AppViewModel())
+    let viewModel = AppViewModel()
+    return ContentView()
+        .environmentObject(viewModel)
+        .environmentObject(viewModel.playback)
 }
 
 private struct WindowAccessor: NSViewRepresentable {

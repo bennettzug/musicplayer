@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @EnvironmentObject private var viewModel: AppViewModel
+    @EnvironmentObject private var playback: PlaybackState
     let album: Album
 
     private var currentTrack: Track? {
@@ -24,17 +25,17 @@ struct NowPlayingView: View {
             // Scrubber + transport + volume grouped like Apple Music
             VStack(spacing: 28) {
                 ScrubberView(
-                    position: $viewModel.playbackPosition,
-                    duration: viewModel.duration
+                    position: $playback.position,
+                    duration: playback.duration
                 ) { time in
                     viewModel.seek(to: time)
                 }
                 .frame(maxWidth: 420)
 
                 TransportControlsView(
-                    isPlaying: viewModel.isPlaying,
-                    volume: viewModel.volume,
-                    isQueueVisible: viewModel.isQueueVisible,
+                    isPlaying: playback.isPlaying,
+                    volume: playback.volume,
+                    isQueueVisible: playback.isQueueVisible,
                     onPlayPause: { viewModel.togglePlayback() },
                     onNext: { viewModel.playNext() },
                     onPrevious: { viewModel.playPrevious() },
@@ -45,7 +46,7 @@ struct NowPlayingView: View {
             }
 
             // Queue list
-            if viewModel.isQueueVisible {
+            if playback.isQueueVisible {
                 UpcomingListView(
                     album: album,
                     currentIndex: viewModel.currentTrackIndex
@@ -72,19 +73,20 @@ struct NowPlayingView: View {
                     .font(.system(size: 26, weight: .semibold))
                     .lineLimit(2)
             }
-
-            Text(album.artist)
+            if let track = currentTrack {
+                Text(
+                    album.year.isEmpty
+                    ? "\(track.artist) – \(album.title)"
+                    : "\(track.artist) – \(album.title) (\(album.year))"
+                )
                 .font(.system(size: 17, weight: .regular))
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-
-            Text(album.year.isEmpty ? album.title : "\(album.title) • \(album.year)")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.9))
-                .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+
 }
 
 // MARK: - Artwork
@@ -227,17 +229,21 @@ struct UpcomingListView: View {
                     onSelect(index)
                 } label: {
                     HStack {
-                        
+                        VStack(alignment:.leading) {
+                            
+                            
                             Text(track.title)
                                 .font(.subheadline.weight(.medium))
                                 .lineLimit(1)
-
+                            Text(track.artist)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                             
                         
                         Spacer()
                         if index == currentIndex {
                             Image(systemName: "waveform")
-                                .symbolEffect(.breathe, options: .repeat(.continuous))
                                 .foregroundColor(.white)
                         } else {
                             Text(formattedDuration(track.duration))
