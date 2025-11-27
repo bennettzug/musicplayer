@@ -10,6 +10,9 @@ struct NowPlayingView: View {
     }
 
     var body: some View {
+        let primary = viewModel.foregroundColor
+        let secondary = primary.opacity(0.72)
+
         VStack(spacing: 32) {
             Spacer(minLength: 32)
 
@@ -26,16 +29,21 @@ struct NowPlayingView: View {
             VStack(spacing: 28) {
                 ScrubberView(
                     position: $playback.position,
-                    duration: playback.duration
-                ) { time in
-                    viewModel.seek(to: time)
-                }
+                    duration: playback.duration,
+                    onSeek: { time in
+                        viewModel.seek(to: time)
+                    },
+                    tint: primary,
+                    secondary: secondary
+                )
                 .frame(maxWidth: 420)
 
                 TransportControlsView(
                     isPlaying: playback.isPlaying,
                     volume: playback.volume,
                     isQueueVisible: playback.isQueueVisible,
+                    tint: primary,
+                    secondary: secondary,
                     onPlayPause: { viewModel.togglePlayback() },
                     onNext: { viewModel.playNext() },
                     onPrevious: { viewModel.playPrevious() },
@@ -49,7 +57,9 @@ struct NowPlayingView: View {
             if playback.isQueueVisible {
                 UpcomingListView(
                     album: album,
-                    currentIndex: viewModel.currentTrackIndex
+                    currentIndex: viewModel.currentTrackIndex,
+                    primary: primary,
+                    secondary: secondary
                 ) { index in
                     viewModel.play(album: album, trackIndex: index)
                 }
@@ -60,7 +70,7 @@ struct NowPlayingView: View {
             Spacer(minLength: 40)
         }
         .padding(.horizontal, 80)
-        .foregroundColor(.white)
+        .foregroundColor(primary)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -80,7 +90,7 @@ struct NowPlayingView: View {
                     : "\(track.artist) – \(album.title) (\(album.year))"
                 )
                 .font(.system(size: 17, weight: .regular))
-                .foregroundColor(.secondary)
+                .foregroundColor(viewModel.foregroundColor.opacity(0.75))
                 .lineLimit(1)
             }
         }
@@ -108,6 +118,8 @@ struct ScrubberView: View {
     @Binding var position: TimeInterval
     let duration: TimeInterval
     var onSeek: (TimeInterval) -> Void
+    let tint: Color
+    let secondary: Color
 
     private func timeString(_ time: TimeInterval) -> String {
         let totalSeconds = max(Int(time), 0)
@@ -128,7 +140,7 @@ struct ScrubberView: View {
                 ),
                 in: 0...max(duration, 1)
             )
-            .tint(.white)
+            .tint(tint)
             .sliderThumbVisibility(.hidden)
 
             HStack {
@@ -137,7 +149,7 @@ struct ScrubberView: View {
                 Text(timeString(duration))
             }
             .font(.caption)
-            .foregroundColor(.secondary)
+            .foregroundColor(secondary)
         }
     }
 }
@@ -148,6 +160,8 @@ struct TransportControlsView: View {
     let isPlaying: Bool
     let volume: Double
     let isQueueVisible: Bool
+    let tint: Color
+    let secondary: Color
 
     var onPlayPause: () -> Void
     var onNext: () -> Void
@@ -156,6 +170,8 @@ struct TransportControlsView: View {
     var onToggleQueue: () -> Void
 
     var body: some View {
+        let primary = tint
+
         VStack(spacing: 28) {
             // Main playback controls
             HStack(spacing: 64) {
@@ -188,7 +204,8 @@ struct TransportControlsView: View {
                             set: { newValue in onVolumeChange(newValue) }
                         ),
                         in: 0...1
-                    ).tint(.white)
+                    )
+                    .tint(primary)
                     Image(systemName: "speaker.wave.3.fill")
                 }
 
@@ -200,15 +217,15 @@ struct TransportControlsView: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(isQueueVisible ? 0.2 : 0.12))
+                    .background(primary.opacity(isQueueVisible ? 0.2 : 0.12))
                     .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
             .font(.caption)
-            .foregroundColor(.secondary)
+            .foregroundColor(secondary)
         }
-        .foregroundColor(.white)
+        .foregroundColor(primary)
     }
 }
 
@@ -217,6 +234,8 @@ struct TransportControlsView: View {
 struct UpcomingListView: View {
     let album: Album
     let currentIndex: Int
+    let primary: Color
+    let secondary: Color
     var onSelect: (Int) -> Void
 
     var body: some View {
@@ -237,23 +256,23 @@ struct UpcomingListView: View {
                                 .lineLimit(1)
                             Text(track.artist)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(secondary)
                         }
                             
                         
                         Spacer()
                         if index == currentIndex {
                             Image(systemName: "waveform")
-                                .foregroundColor(.white)
+                                .foregroundColor(primary)
                         } else {
                             Text(formattedDuration(track.duration))
-                                .foregroundColor(.secondary)
+                                .foregroundColor(secondary)
                                 .font(.caption)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)
-                    .background(index == currentIndex ? Color.white.opacity(0.14) : Color.white.opacity(0.06))
+                    .background(index == currentIndex ? primary.opacity(0.18) : primary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -268,3 +287,4 @@ struct UpcomingListView: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
 }
+

@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject private var viewModel: AppViewModel
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var windowDelegate = FullscreenHidingWindowDelegate()
+    @State private var spacebarHandler: SpacebarToggleManager?
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -37,6 +38,15 @@ struct ContentView: View {
             window?.delegate = windowDelegate
         })
         .toolbar(removing: .sidebarToggle)
+        .onAppear {
+            spacebarHandler = SpacebarToggleManager {
+                viewModel.togglePlayback()
+            }
+            spacebarHandler?.start()
+        }
+        .onDisappear {
+            spacebarHandler?.stop()
+        }
     }
 
     private func toggleSidebar() {
@@ -70,7 +80,7 @@ private struct BackgroundView: View {
             .ignoresSafeArea()
 
             LinearGradient(
-                colors: [palette.accent.opacity(0.2), Color.clear],
+                colors: [palette.accent.opacity(0.28), Color.black.opacity(0.18)],
                 startPoint: .bottomLeading,
                 endPoint: .topTrailing
             )
@@ -83,11 +93,26 @@ private struct BackgroundView: View {
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         ns.usingColorSpace(.deviceRGB)?.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
 
-        let boostedS = max(s, min(1.0, s * 1.1 + 0.1))
+        let boostedS = max(s, min(1.0, s * 1.15 + 0.1))
 
-        let light = NSColor(hue: h, saturation: min(boostedS * 0.9, 1.0), brightness: min(b * 1.05 + 0.05, 1.0), alpha: a)
-        let dark = NSColor(hue: h, saturation: min(boostedS * 1.1, 1.0), brightness: max(b * 0.55, 0.15), alpha: a)
-        let accent = NSColor(hue: h, saturation: min(boostedS * 1.05, 1.0), brightness: min(b * 1.1, 1.0), alpha: a)
+        let light = NSColor(
+            hue: h,
+            saturation: min(boostedS * 0.85, 1.0),
+            brightness: min(b * 1.12 + 0.12, 1.0),
+            alpha: a
+        )
+        let dark = NSColor(
+            hue: h,
+            saturation: min(boostedS * 1.2, 1.0),
+            brightness: max(b * 0.42, 0.12),
+            alpha: a
+        )
+        let accent = NSColor(
+            hue: h,
+            saturation: min(boostedS * 1.08, 1.0),
+            brightness: min(b * 1.08, 1.0),
+            alpha: a
+        )
 
         return (Color(light), Color(dark), Color(accent))
     }
@@ -117,5 +142,47 @@ private struct WindowAccessor: NSViewRepresentable {
 private final class FullscreenHidingWindowDelegate: NSObject, NSWindowDelegate {
     func window(_ window: NSWindow, willUseFullScreenPresentationOptions proposedOptions: NSApplication.PresentationOptions = []) -> NSApplication.PresentationOptions {
         [.autoHideToolbar, .autoHideMenuBar, .fullScreen]
+    }
+}
+
+/// Global spacebar listener that toggles play/pause when appropriate.
+private final class SpacebarToggleManager {
+    private var monitor: Any?
+    private let onToggle: () -> Void
+
+    init(onToggle: @escaping () -> Void) {
+        self.onToggle = onToggle
+    }
+
+    func start() {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+
+            // Only respond to plain space (no control/command/option).
+            let disallowed = event.modifierFlags.intersection([.command, .option, .control])
+            guard disallowed.isEmpty else { return event }
+            guard event.charactersIgnoringModifiers == " " else { return event }
+
+            // Avoid hijacking when typing (search field or any text input).
+            if let responder = NSApp.keyWindow?.firstResponder {
+                if responder is NSTextView ||
+                    responder is NSTextField ||
+                    responder is NSTextInputClient ||
+                    responder is NSControl {
+                    return event
+                }
+            }
+
+            onToggle()
+            return nil
+        }
+    }
+
+    func stop() {
+        if let monitor {
+            NSEvent.removeMonitor(monitor)
+            self.monitor = nil
+        }
     }
 }

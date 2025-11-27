@@ -21,6 +21,7 @@ final class AppViewModel: ObservableObject {
     @Published var currentTrackIndex: Int = 0
     @Published var isAlbumBrowserOpen: Bool = true
     @Published var backgroundColor: Color = Color(red: 0.12, green: 0.12, blue: 0.14)
+    @Published var foregroundColor: Color = .white
     @Published var artists: [String] = []
     @Published var selectedArtist: String?
     @Published var libraryPath: String?
@@ -51,6 +52,7 @@ final class AppViewModel: ObservableObject {
     private var currentTrackStartDate: Date?
 
     init() {
+        foregroundColor = preferredTextColor(for: backgroundColor)
         Task { await loadPersistedLibrary() }
         loadLastFMSession()
         player.onTrackEnd = { [weak self] in
@@ -339,7 +341,9 @@ final class AppViewModel: ObservableObject {
     }
 
     private func updatePalette(from album: Album) {
-        backgroundColor = dominantColor(from: album.coverData)
+        let bg = dominantColor(from: album.coverData)
+        backgroundColor = bg
+        foregroundColor = preferredTextColor(for: bg)
     }
 
     private func dominantColor(from data: Data?) -> Color {
@@ -370,6 +374,23 @@ final class AppViewModel: ObservableObject {
         let b = Double(bitmap[2]) / 255.0
 
         return Color(red: r, green: g, blue: b)
+    }
+
+    private func preferredTextColor(for background: Color) -> Color {
+        let ns = NSColor(background)
+        guard let rgb = ns.usingColorSpace(.deviceRGB) else { return .white }
+        // Relative luminance (WCAG)
+        let r = Self.linearized(rgb.redComponent)
+        let g = Self.linearized(rgb.greenComponent)
+        let b = Self.linearized(rgb.blueComponent)
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        // Bias heavily toward light text; only switch to dark text on very bright backgrounds.
+        return luminance < 0.9 ? .white : Color(red: 0.08, green: 0.08, blue: 0.1)
+    }
+
+    private static func linearized(_ value: CGFloat) -> Double {
+        let v = Double(value)
+        return v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
     }
 
     func selectArtist(_ artist: String) {
